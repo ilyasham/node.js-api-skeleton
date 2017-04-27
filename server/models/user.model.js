@@ -9,16 +9,16 @@ import APIError from '../helpers/APIError';
 const UserSchema = new mongoose.Schema({
   email: {
     type: String,
+    unique: true,
     match: /^([\w-\.]+@([\w-]+\.)+[\w-]{2,4})?$/ // eslint-disable-line
   },
   username: {
     type: String,
     required: true
   },
-  mobileNumber: {
+  password: {
     type: String,
-    required: true,
-    match: [/^[1-9][0-9]{9}$/, 'The value of path {PATH} ({VALUE}) is not a valid mobile number.']
+    required: true
   },
   createdAt: {
     type: Date,
@@ -37,6 +37,17 @@ const UserSchema = new mongoose.Schema({
  * Methods
  */
 UserSchema.method({
+});
+
+
+UserSchema.set('toJSON', {
+  transform: (doc/* , ret*/) => {
+    return {
+      _id: doc._id,
+      username: doc.username,
+      email: doc.email
+    }
+  }
 });
 
 /**

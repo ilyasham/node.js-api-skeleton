@@ -1,4 +1,6 @@
+import bcrypt from 'bcrypt';
 import User from '../models/user.model';
+import httpStatus from 'http-status';
 
 /**
  * Load user and append to req.
@@ -27,15 +29,24 @@ function get(req, res) {
  * @returns {User}
  */
 function create(req, res, next) {
-  const user = new User({
-    email: req.body.email,
-    username: req.body.username,
-    mobileNumber: req.body.mobileNumber
+
+  bcrypt.hash(req.body.password, 12, function(err, hash) {
+    if (err) {
+      return next('Invalid Password!');
+    } else {
+      const user = new User({
+        email: req.body.email,
+        username: req.body.username,
+        password: hash
+      });
+
+      user.save()
+        .then(savedUser => res.json(savedUser))
+        .catch(e => next(e));
+    }
   });
 
-  user.save()
-    .then(savedUser => res.json(savedUser))
-    .catch(e => next(e));
+
 }
 
 /**
@@ -73,9 +84,19 @@ function list(req, res, next) {
  */
 function remove(req, res, next) {
   const user = req.user;
-  user.remove()
-    .then(deletedUser => res.json(deletedUser))
-    .catch(e => next(e));
+  if (user._id.equals(req.currentUser._id)) {
+    user.remove()
+      .then(deletedUser => {
+        console.info('Deleted User:', deletedUser);
+        res.json(deletedUser)
+      })
+      .catch(e => next(e));
+  } else {
+    res.send({
+      status: httpStatus.BAD_REQUEST,
+      error: 'Unable to remove other user!'
+    });
+  }
 }
 
 export default { load, get, create, update, list, remove };

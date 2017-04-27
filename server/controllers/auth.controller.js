@@ -1,13 +1,10 @@
 import jwt from 'jsonwebtoken';
 import httpStatus from 'http-status';
+import bcrypt from 'bcrypt';
+
 import APIError from '../helpers/APIError';
 import config from '../../config/config';
-
-// sample user, used for authentication
-const user = {
-  username: 'react',
-  password: 'express'
-};
+import User from '../models/user.model'
 
 /**
  * Returns jwt token if valid username and password is provided
@@ -16,35 +13,53 @@ const user = {
  * @param next
  * @returns {*}
  */
-function login(req, res, next) {
-  // Ideally you'll fetch this from the db
-  // Idea here was to show how jwt works with simplicity
-  if (req.body.username === user.username && req.body.password === user.password) {
-    const token = jwt.sign({
-      username: user.username
-    }, config.jwtSecret);
-    return res.json({
-      token,
-      username: user.username
-    });
-  }
+const login = async (req, res, next) => {
 
+  console.info('Login API!');
+  const { email, password } = req.body;
+  const user = await User.findOne({
+    email
+  });
+  if (user) {
+    const bAuthed = await bcrypt.compare(password, user.password);
+    if (bAuthed === true) {
+      const token = jwt.sign({
+        _id: user._id.toString()
+      }, config.jwtSecret);
+      return res.json({
+        token,
+        user: user
+      });
+    }
+  }
   const err = new APIError('Authentication error', httpStatus.UNAUTHORIZED, true);
   return next(err);
 }
 
 /**
- * This is a protected route. Will return random number only if jwt token is provided in header.
+ * This is a middleware to check the JWT
  * @param req
  * @param res
  * @returns {*}
  */
-function getRandomNumber(req, res) {
-  // req.user is assigned by jwt middleware if valid token is provided
-  return res.json({
-    user: req.user,
-    num: Math.random() * 100
+const checkJWT = (req, res, next) => {
+  const { authorization } = req.headers;
+  jwt.verify(authorization, config.jwtSecret, (err, decoded) => {
+    if (err) {
+      const err = new APIError('Invalid Token!', httpStatus.UNAUTHORIZED, true);
+      return next(err);
+    } else {
+      const { _id } = decoded;
+      User.findById(_id, (err, user) => {
+        if (err) {
+          next(new APIError('Failed to load user from DB'));
+        } else {
+          req.currentUser = user;
+          next();
+        }
+      });
+    }
   });
 }
 
-export default { login, getRandomNumber };
+export default { login, checkJWT };

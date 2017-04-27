@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import util from 'util';
+import 'babel-polyfill';
 
 // config should be imported before importing any other file
 import config from './config/config';
